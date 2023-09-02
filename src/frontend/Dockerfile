@@ -12,22 +12,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Stage 1: Build the Go Application
 FROM golang:1.15-alpine as builder
-RUN apk add --no-cache ca-certificates git
+
+# Install required tools and dependencies
+RUN apk update && apk add --no-cache ca-certificates git
+
+# Set the working directory
 WORKDIR /src
 
-# restore dependencies
+# Copy go.mod and go.sum files to download dependencies
 COPY go.mod go.sum ./
+
+# Download Go module dependencies
 RUN go mod download
+
+# Copy the rest of the application source code
 COPY . .
+
+# Build the Go application
 RUN go build -o /go/bin/frontend .
 
+# Stage 2: Create the Release Image
 FROM alpine as release
-RUN apk add --no-cache ca-certificates \
-    busybox-extras net-tools bind-tools
+
+# Install required tools and dependencies
+RUN apk update && apk add --no-cache ca-certificates busybox-extras net-tools bind-tools
+
+# Set the working directory for the release image
 WORKDIR /frontend
+
+# Copy the compiled Go binary from the builder stage
 COPY --from=builder /go/bin/frontend /frontend/server
+
+# Copy application templates and static files
 COPY ./templates ./templates
 COPY ./static ./static
+
+# Expose the application's listening port
 EXPOSE 8080
+
+# Define the entry point for the container
 ENTRYPOINT ["/frontend/server"]
